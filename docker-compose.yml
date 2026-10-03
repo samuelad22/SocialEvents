@@ -1,0 +1,90 @@
+services:
+  bd:
+    container_name: samuel_bd
+    image: mysql:8.0
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: ${DB_PASSWORD:-root}
+      MYSQL_DATABASE: ${DB_DATABASE:-street_connect}
+      MYSQL_USER: ${DB_USERNAME:-streetconnect}
+      MYSQL_PASSWORD: ${DB_PASSWORD:-root}
+    volumes:
+      - vol_bd:/var/lib/mysql
+    networks:
+      - appnet
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h localhost -u root -p\"$${MYSQL_ROOT_PASSWORD}\" --silent"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  backend:
+    container_name: samuel_back
+    restart: always
+    build:
+      context: ./SocialEvents-SamuelAlbaDomingos-Back
+    depends_on:
+      bd:
+        condition: service_healthy
+    env_file:
+      - path: ./.env
+        required: false
+    environment:
+      APP_ENV: ${APP_ENV:-production}
+      APP_DEBUG: ${APP_DEBUG:-false}
+      APP_URL: ${APP_URL:-http://localhost:8000}
+      APP_URL_IMAGE: ${APP_URL_IMAGE:-http://localhost:8000/storage/}
+      APP_KEY: ${APP_KEY:-}
+      GROQ_API_KEY: ${GROQ_API_KEY:-}
+      DB_CONNECTION: mysql
+      DB_HOST: bd
+      DB_PORT: 3306
+      DB_DATABASE: ${DB_DATABASE:-street_connect}
+      DB_USERNAME: ${DB_USERNAME:-streetconnect}
+      DB_PASSWORD: ${DB_PASSWORD:-root}
+      BROADCAST_CONNECTION: ${BROADCAST_CONNECTION:-reverb}
+      REVERB_APP_ID: ${REVERB_APP_ID:-streetconnect-demo}
+      REVERB_APP_KEY: ${REVERB_APP_KEY:-local-reverb-key}
+      REVERB_APP_SECRET: ${REVERB_APP_SECRET:-local-reverb-secret}
+      REVERB_HOST: ${REVERB_HOST:-0.0.0.0}
+      REVERB_PORT: ${REVERB_PORT:-8080}
+      REVERB_SCHEME: ${REVERB_SCHEME:-http}
+      REVERB_ALLOWED_ORIGINS: ${REVERB_ALLOWED_ORIGINS:-localhost,127.0.0.1}
+      VITE_REVERB_APP_KEY: ${VITE_REVERB_APP_KEY:-local-reverb-key}
+      MAIL_MAILER: ${MAIL_MAILER:-log}
+      FRONTEND_URL: ${FRONTEND_URL:-http://localhost/}
+      SEED_ADMIN_PASSWORD: ${SEED_ADMIN_PASSWORD:-AdminDemo123!}
+      SEED_USER_PASSWORD: ${SEED_USER_PASSWORD:-UsuarioDemo123!}
+    ports:
+      - "8000:80"
+      - "8080:8080"
+    volumes:
+      - imagenes:/var/www/html/storage/app/public/imagenes
+    networks:
+      - appnet
+
+  frontend:
+    container_name: samuel_front
+    restart: always
+    build:
+      context: ./SocialEvents-SamuelAlbaDomingos-Front
+      args:
+        VITE_API_URL: ${VITE_API_URL:-/api}
+        VITE_REVERB_APP_KEY: ${VITE_REVERB_APP_KEY:-local-reverb-key}
+        VITE_REVERB_HOST: ${VITE_REVERB_HOST:-localhost}
+        VITE_REVERB_PORT: ${VITE_REVERB_PORT:-8080}
+        VITE_REVERB_SCHEME: ${VITE_REVERB_SCHEME:-ws}
+    depends_on:
+      backend:
+        condition: service_started
+    ports:
+      - "80:80"
+    networks:
+      - appnet
+
+volumes:
+  vol_bd:
+  imagenes:
+
+networks:
+  appnet:
